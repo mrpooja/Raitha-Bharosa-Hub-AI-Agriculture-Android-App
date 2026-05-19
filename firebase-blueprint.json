@@ -1,0 +1,104 @@
+{
+  "entities": {
+    "farmer": {
+      "title": "Farmer Profile",
+      "description": "User profile for the farmer",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "primaryCrop": { "type": "string" },
+        "language": { "type": "string", "enum": ["English", "Kannada"] },
+        "location": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "primaryCrop", "language"]
+    },
+    "sowingIndex": {
+      "title": "Sowing Index",
+      "description": "Calculated sowing suitability score and environmental variables",
+      "type": "object",
+      "properties": {
+        "farmerId": { "type": "string" },
+        "score": { "type": "number", "description": "0-100 percentage" },
+        "environmentalData": {
+          "type": "object",
+          "properties": {
+            "moisture": { "type": "number" },
+            "temperature": { "type": "number" },
+            "humidity": { "type": "number" },
+            "predictedRainfall": { "type": "number" }
+          }
+        },
+        "advice": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["farmerId", "score", "timestamp"]
+    },
+    "soilTest": {
+      "title": "Soil Test Result",
+      "description": "N-P-K and moisture levels from soil testing",
+      "type": "object",
+      "properties": {
+        "farmerId": { "type": "string" },
+        "n": { "type": "number" },
+        "p": { "type": "number" },
+        "k": { "type": "number" },
+        "moisture": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["farmerId", "n", "p", "k", "moisture", "timestamp"]
+    },
+    "actionPlanEvent": {
+      "title": "Action Plan Event",
+      "description": "A single event in the Krishi Calendar",
+      "type": "object",
+      "properties": {
+        "farmerId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "type": { "type": "string", "enum": ["Sowing", "Fertilization", "Harvesting", "Weather Alert", "General"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "isDone": { "type": "boolean" }
+      },
+      "required": ["farmerId", "date", "type", "title"]
+    },
+    "cropHistory": {
+      "title": "Crop History",
+      "description": "Historical record of crops planted and harvested",
+      "type": "object",
+      "properties": {
+        "farmerId": { "type": "string" },
+        "crop": { "type": "string" },
+        "variety": { "type": "string" },
+        "season": { "type": "string" },
+        "yield": { "type": "number" },
+        "sowingDate": { "type": "string", "format": "date" },
+        "harvestDate": { "type": "string", "format": "date" }
+      },
+      "required": ["farmerId", "crop", "season"]
+    }
+  },
+  "firestore": {
+    "/farmers/{userId}": {
+      "schema": "farmer",
+      "description": "User profiles"
+    },
+    "/farmers/{userId}/sowingIndices/{indexId}": {
+      "schema": "sowingIndex",
+      "description": "Daily/Hourly sowing suitability scores"
+    },
+    "/farmers/{userId}/soilTests/{testId}": {
+      "schema": "soilTest",
+      "description": "Historical soil test data"
+    },
+    "/farmers/{userId}/actionPlan/{eventId}": {
+      "schema": "actionPlanEvent",
+      "description": "Farmers personalized Krishi Calendar"
+    },
+    "/farmers/{userId}/cropHistory/{historyId}": {
+      "schema": "cropHistory",
+      "description": "Historical yields and crop performance"
+    }
+  }
+}
