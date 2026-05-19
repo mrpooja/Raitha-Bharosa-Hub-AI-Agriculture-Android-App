@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      // Mandate email verification for all operations as per security best practices
+      return isSignedIn() && request.auth.uid == userId && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Farmer Profile Validation
+    function isValidFarmer(data) {
+      return data.keys().hasAll(['userId', 'name', 'primaryCrop', 'language', 'createdAt']) && 
+             data.keys().size() == 5 &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             data.primaryCrop is string && data.primaryCrop.size() > 0 && data.primaryCrop.size() <= 200 &&
+             data.language in ['English', 'Kannada'] &&
+             data.createdAt == request.time;
+    }
+
+    match /farmers/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidFarmer(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) && isValidFarmer(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().createdAt == existing().createdAt;
+
+      // Sowing Indices
+      match /sowingIndices/{indexId} {
+        function isValidSowingIndex(data) {
+          return data.keys().hasAll(['farmerId', 'score', 'environmentalData', 'advice', 'timestamp']) &&
+                 data.farmerId == userId &&
+                 data.score is number && data.score >= 0 && data.score <= 100 &&
+                 data.advice is string && data.advice.size() <= 2000 &&
+                 data.timestamp == request.time;
+        }
+
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSowingIndex(incoming());
+      }
+
+      // Soil Tests
+      match /soilTests/{testId} {
+        function isValidSoilTest(data) {
+          return data.keys().hasAll(['farmerId', 'n', 'p', 'k', 'moisture', 'timestamp']) &&
+                 data.farmerId == userId &&
+                 data.n is number && data.p is number && data.k is number && data.moisture is number &&
+                 data.timestamp == request.time;
+        }
+
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSoilTest(incoming());
+      }
+
+      // Action Plan
+      match /actionPlan/{eventId} {
+        function isValidActionPlanEvent(data) {
+          return data.keys().hasAll(['farmerId', 'date', 'type', 'title', 'description', 'isDone']) &&
+                 data.farmerId == userId &&
+                 data.type in ['Sowing', 'Fertilization', 'Harvesting', 'Weather Alert', 'General'] &&
+                 data.title is string && data.title.size() <= 500 &&
+                 data.description is string && data.description.size() <= 2000 &&
+                 data.isDone is bool;
+        }
+
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidActionPlanEvent(incoming());
+        allow update: if isOwner(userId) && isValidActionPlanEvent(incoming()) && 
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['isDone', 'description'])) || (incoming().diff(existing()).affectedKeys().size() == 0);
+        allow delete: if isOwner(userId);
+      }
+
+      // Crop History
+      match /cropHistory/{historyId} {
+        function isValidCropHistory(data) {
+          return data.keys().hasAll(['farmerId', 'crop', 'variety', 'season', 'yield', 'sowingDate', 'harvestDate', 'createdAt']) &&
+                 data.keys().size() == 8 &&
+                 data.farmerId == userId &&
+                 data.crop is string && data.variety is string && data.season is string &&
+                 data.yield is number &&
+                 data.createdAt == request.time;
+        }
+
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidCropHistory(incoming());
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
